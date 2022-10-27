@@ -9,6 +9,10 @@
 #define INFO 3
 #define DEBUG 4
 
+// usage call this function before exit main()
+void LogFlush() {
+    fflush(stdout);
+}
 
 // usage: LogRecord(ERROR, "%s is error", "main");
 void LogRecord(int level, const char *format,...) {
