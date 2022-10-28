@@ -43,25 +43,27 @@ int checkDisks(int p) {
 // 数据编码并保存
 int encode(char* fileContent, int p, int blockSize) {
     LogRecord(DEBUG, "[encode] blockSize=%d", blockSize);
-    char*** fileMatrix = malloc(sizeof(char) * blockSize * (p + 2));
+    int byteSize = sizeof(char);
+    int blockEleNum = blockSize / (p - 1);
+    char*** fileMatrix = malloc(byteSize * blockSize * (p + 2));
     // 这里每一行是一个数据块 注意和图示的行列关系相反
     for (int i = 0;i < p;i++) {
-        fileMatrix[i] = malloc(sizeof(char) * blockSize);
+        fileMatrix[i] = malloc(byteSize * blockSize);
         for (int j = 0;j < p - 1;j++) {
-            fileMatrix[i][j] = malloc(sizeof(char) * (blockSize / (p - 1)));  
-            memcpy(fileMatrix[i][j], fileContent + i * blockSize + j * (blockSize / (p - 1)), (blockSize / (p - 1)));
+            fileMatrix[i][j] = malloc(byteSize * blockEleNum);  
+            memcpy(fileMatrix[i][j], fileContent + i * blockSize + j * blockEleNum, blockEleNum);
         }
     }
     for (int i = p;i < p + 2;i++) {
-        fileMatrix[i] = malloc(sizeof(char) * blockSize);
+        fileMatrix[i] = malloc(byteSize * blockSize);
         for (int j = 0;j < p - 1;j++) {
-            fileMatrix[i][j] = malloc(sizeof(char) * (blockSize / (p - 1)));
+            fileMatrix[i][j] = malloc(byteSize * blockEleNum);
         }
     }
     
     for (int j = 0;j < p - 1;j++) {
         char P1 = 0;
-        for (int k = 0;k < (blockSize / (p - 1)); k++) {
+        for (int k = 0;k < blockEleNum; k++) {
             for (int i = 0;i < p;i++) {
                 P1 = P1 ^ fileMatrix[i][j][k];
             }  
@@ -73,7 +75,23 @@ int encode(char* fileContent, int p, int blockSize) {
             LogRecord(DEBUG, "[encode] line %d col %d = %s", i,j, fileMatrix[i][j]);
         }
     }
-    // char *P = malloc(sizeof())
+    char *S = calloc(blockEleNum, byteSize);
+    // calculate S
+    for (int j = 0;j < p - 2; j++) {
+        for (int i = p - 1;i >= 0; i--) {
+            for (int k = 0;k < blockEleNum; k++) {
+                S[k] = S[k] ^ fileMatrix[j][i][k];
+            }
+        }
+    }
+    // calculate each line
+    for (int i = p - 2;i >= 0; i--) {
+        for (int j = 0;j <= i; j++) {
+            for (int k = 0;k < blockEleNum;k++) {
+                fileMatrix[p + 1][j][k] = fileMatrix[p + 1][j][k] ^ S[k];
+            }
+        }
+    }
 
 
     free(fileMatrix);
