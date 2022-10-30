@@ -7,6 +7,8 @@
 #include <string.h>
 #include "log.c"
 
+typedef unsigned long long uint64;
+
 #define PATH_NAME_LEN 100
 
 /// @brief read file from emulated disks
@@ -14,7 +16,7 @@
 /// @param fileName 待读取文件名
 /// @param p 保存根据包含 fileName 的 disks 个数推断出的质数 p
 /// @return 指向读取结果 char[p][block_size] 的指针
-int ReadBlocks(char *path, char* fileName, int *p, char ***buf) {
+int ReadBlocks(char *path, char* fileName, int *p, char ****buf) {
     DIR *dp, *diskp;
     FILE *fp;
     struct dirent *dirName, *fName;
@@ -47,18 +49,41 @@ int ReadBlocks(char *path, char* fileName, int *p, char ***buf) {
                     // get p from filename
                     char *pos = strrchr(fName->d_name, '_');
                     *p = atoi(pos+1);
-                    *buf = (char **)malloc(sizeof(char *) * (*p+2));
+                    *buf = (char ***)malloc(sizeof(char **) * (*p+2));
                 }
                 // read file
                 sprintf(fullPath, "%s/%s", fullPath, fName->d_name);
                 stat(fullPath, &stBuf);
-                (*buf)[diskIdx] = (char *)malloc(sizeof(char) * stBuf.st_size);
+                uint64 blockSize = stBuf.st_size / (p - 1) + 1;
+                (*buf)[diskIdx] = (char **)malloc(sizeof(char*) * (p-1));
                 fp = fopen(fullPath, "r");
-                long long readLen = fread((*buf)[diskIdx], sizeof(char), stBuf.st_size, fp);
-                if(!readLen) {
+                if(!fp) {
                     LogRecord(WARN, "open file %s error\n", fullPath);
                     free((*buf)[diskIdx]);
                     (*buf)[diskIdx] = NULL;
+                    break;
+                }
+                for(int i = 0;i < p - 2; i++) {
+                    (*buf)[diskIdx][i] = (char *)malloc(sizeof(char) * blockSize);
+                    uint64 readLen = fread((*buf)[diskIdx][i], sizeof(char), blockSize, fp);
+                    if(!readLen) {
+                        LogRecord(WARN, "expect to read %lld bytes from %s for block %d, but read 0 byte\n", readLen, fullPath, i);
+                        free((*buf)[diskIdx][i]);
+                        (*buf)[diskIdx][i] = NULL;
+                    } else {
+                        LogRecord(INFO, "read %lld bytes form %s for block %d\n", readLen, fullPath, i);
+                    }
+                }
+                // calculate fread ElementCount for block p-1
+                (*buf)[diskIdx][i] = (char *)malloc(sizeof(char) * blockSize);
+                memset((*buf)[diskIdx][i], 0, sizeof(char) * blockSize);
+                uint64 readLen = fread((*buf)[diskIdx][p-2], sizeof(char), stBuf.st_size - blockSize * (p-2), fp);
+                if(!readLen) {
+                    LogRecord(WARN, "expect to read %lld bytes from %s for block %d, but read 0 byte\n", stBuf.st_size - blockSize * (p-2), fullPath, p-2);
+                    free((*buf)[diskIdx][p-2]);
+                    (*buf)[diskIdx][p-2] = NULL;
+                } else {
+                    LogRecord(INFO, "read %lld bytes form %s for block %d\n", readLen, fullPath, i);
                 }
                 break;
             }
@@ -75,7 +100,7 @@ int ReadBlocks(char *path, char* fileName, int *p, char ***buf) {
 /// @param bufSize 
 /// @param diskNum 
 /// @return 
-int WriteBlocks(char *path, char* fileName, char **buf, long long bufSize, int diskNum) {
+int WriteBlocks(char *path, char* fileName, char ***buf, uint64 blockSize, int diskNum) {
     for(int i=0;i<diskNum;i++) {
         char diskPath[PATH_NAME_LEN];
         sprintf(diskPath, "%s/disk_%d/%s_%d", path, i, fileName, diskNum-2);
@@ -84,8 +109,10 @@ int WriteBlocks(char *path, char* fileName, char **buf, long long bufSize, int d
             LogRecord(ERROR, "open file %s error", diskPath);
             return -1;
         }
-        long long cnt = fwrite(buf[i], 1, bufSize, fp);
-        LogRecord(INFO, "write %lld bytes to file %s", cnt, diskPath);
+        for(int i= 0;i< diskNum - 2;i++) {
+            uint64 cnt = fwrite(buf[i], 1, blockSize, fp);
+            LogRecord(INFO, "write %lld bytes to file %s", cnt, diskPath);
+        }
         fclose(fp);
     }
     return 0;
