@@ -9,7 +9,7 @@ int testReadBlocks() {
         if(buf[i]!= NULL) {
             for(int j = 0;j<p-1;j++) {
                 if(buf[i][j]) {
-                    printf("\nfile %d:%s",i , buf[i]);
+                    printf("\nfile %d block %d : %s",i , j, buf[i][j]);
                 } else {
                     printf("\nfile %d block %d:NULL", i, j);
                 }
@@ -22,7 +22,7 @@ int testReadBlocks() {
 }
 
 void testWriteBlocks() {
-    int p = 3
+    int p = 3;
     char ***buf = (char ***) malloc(sizeof(char **) * (p + 2));
     for(int i = 0;i<p+2;i++) {
         buf[i] = (char **)malloc(sizeof(char *) * (p-1));
@@ -31,11 +31,11 @@ void testWriteBlocks() {
             sprintf(buf[i][j], "disk%d,block%d", i, j);
         }
     }
-    WriteBlocks(".", "writefile", buf, strlen(buf[0][0]), 3);
+    WriteBlocks(".", "writefile", buf, strlen(buf[0][0]), p+2);
     return ;
 }
 
 int main() {
-    // testReadBlocks();
-    testWriteBlocks();
+    testReadBlocks();
+    // testWriteBlocks();
 }

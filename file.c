@@ -54,8 +54,8 @@ int ReadBlocks(char *path, char* fileName, int *p, char ****buf) {
                 // read file
                 sprintf(fullPath, "%s/%s", fullPath, fName->d_name);
                 stat(fullPath, &stBuf);
-                uint64 blockSize = stBuf.st_size / (p - 1) + 1;
-                (*buf)[diskIdx] = (char **)malloc(sizeof(char*) * (p-1));
+                uint64 blockSize = stBuf.st_size / ((*p) - 1) + 1;
+                (*buf)[diskIdx] = (char **)malloc(sizeof(char*) * ((*p) - 1));
                 fp = fopen(fullPath, "r");
                 if(!fp) {
                     LogRecord(WARN, "open file %s error\n", fullPath);
@@ -63,7 +63,7 @@ int ReadBlocks(char *path, char* fileName, int *p, char ****buf) {
                     (*buf)[diskIdx] = NULL;
                     break;
                 }
-                for(int i = 0;i < p - 2; i++) {
+                for(int i = 0;i < (*p) - 2; i++) {
                     (*buf)[diskIdx][i] = (char *)malloc(sizeof(char) * blockSize);
                     uint64 readLen = fread((*buf)[diskIdx][i], sizeof(char), blockSize, fp);
                     if(!readLen) {
@@ -75,15 +75,15 @@ int ReadBlocks(char *path, char* fileName, int *p, char ****buf) {
                     }
                 }
                 // calculate fread ElementCount for block p-1
-                (*buf)[diskIdx][i] = (char *)malloc(sizeof(char) * blockSize);
-                memset((*buf)[diskIdx][i], 0, sizeof(char) * blockSize);
-                uint64 readLen = fread((*buf)[diskIdx][p-2], sizeof(char), stBuf.st_size - blockSize * (p-2), fp);
+                (*buf)[diskIdx][(*p) - 2] = (char *)malloc(sizeof(char) * blockSize);
+                memset((*buf)[diskIdx][(*p) - 2], 0, sizeof(char) * blockSize);
+                uint64 readLen = fread((*buf)[diskIdx][(*p) - 2], sizeof(char), stBuf.st_size - blockSize * ((*p) - 2), fp);
                 if(!readLen) {
-                    LogRecord(WARN, "expect to read %lld bytes from %s for block %d, but read 0 byte\n", stBuf.st_size - blockSize * (p-2), fullPath, p-2);
-                    free((*buf)[diskIdx][p-2]);
-                    (*buf)[diskIdx][p-2] = NULL;
+                    LogRecord(WARN, "expect to read %lld bytes from %s for block %d, but read 0 byte\n", stBuf.st_size - blockSize * ((*p) - 2), fullPath, (*p) - 2);
+                    free((*buf)[diskIdx][(*p) - 2]);
+                    (*buf)[diskIdx][(*p) - 2] = NULL;
                 } else {
-                    LogRecord(INFO, "read %lld bytes form %s for block %d\n", readLen, fullPath, i);
+                    LogRecord(INFO, "read %lld bytes form %s for block %d\n", readLen, fullPath, (*p) - 2);
                 }
                 break;
             }
@@ -109,8 +109,8 @@ int WriteBlocks(char *path, char* fileName, char ***buf, uint64 blockSize, int d
             LogRecord(ERROR, "open file %s error", diskPath);
             return -1;
         }
-        for(int i= 0;i< diskNum - 2;i++) {
-            uint64 cnt = fwrite(buf[i], 1, blockSize, fp);
+        for(int j= 0;j< diskNum - 3;j++) {
+            uint64 cnt = fwrite(buf[i][j], 1, blockSize, fp);
             LogRecord(INFO, "write %lld bytes to file %s", cnt, diskPath);
         }
         fclose(fp);
